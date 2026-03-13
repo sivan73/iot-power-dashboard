@@ -33,12 +33,12 @@ export function SmartControlCenter() {
   }, []);
   const [isSyncing, setIsSyncing] = useState(true);
 
-  // Sync Logic: Get initial state from Blynk
+  // Sync Logic: Get initial state and poll continuously
   useEffect(() => {
-    const syncStates = async () => {
+    const syncStates = async (isInitial = false) => {
       const token = process.env.NEXT_PUBLIC_BLYNK_TOKEN;
       if (!token) {
-        setIsSyncing(false);
+        if (isInitial) setIsSyncing(false);
         return;
       }
 
@@ -49,25 +49,42 @@ export function SmartControlCenter() {
         const response = await fetch(url);
         if (!response.ok) throw new Error('Sync failed');
         
-        // Blynk GET returns simple values for multiple pins if requested this way
-        // or a JSON if complex. With multiple params, it's usually better to check response
         const data = await response.json();
         const newState: Record<string, boolean> = {};
+        let hasChanged = false;
+
         RELAY_CONFIG.forEach(r => {
-          newState[r.pin] = data[r.pin] === "1" || data[r.pin] === 1;
+          const fetchedValue = data[r.pin] === "1" || data[r.pin] === 1;
+          newState[r.pin] = fetchedValue;
+          if (syncedStates[r.pin] !== fetchedValue) {
+            hasChanged = true;
+          }
         });
-        setSyncedStates(newState);
+
+        if (hasChanged || isInitial) {
+          if (!isInitial && hasChanged) {
+            const timeNow = new Date().toLocaleTimeString([], { hour12: false });
+            addLog(`[${timeNow}] SYNC: External state change detected via Blynk Cloud.`);
+          }
+          setSyncedStates(newState);
+        }
+        
         setBlynkStatus('CONNECTED');
       } catch (err) {
         console.error('Blynk sync error:', err);
         setBlynkStatus('DISCONNECTED');
       } finally {
-        setIsSyncing(false);
+        if (isInitial) setIsSyncing(false);
       }
     };
 
-    syncStates();
-  }, []);
+    // Initial sync
+    syncStates(true);
+
+    // Continuous polling every 5 seconds
+    const interval = setInterval(() => syncStates(false), 5000);
+    return () => clearInterval(interval);
+  }, [syncedStates, addLog, setBlynkStatus]);
 
   const handleToggle = async (id: number, pin: string, newState: boolean): Promise<boolean> => {
     setError(null);

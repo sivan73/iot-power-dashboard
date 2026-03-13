@@ -28,19 +28,30 @@ export function RelayCard({ id, name, pin, icon: Icon, initialState = false, onT
     }
   }, [pin]);
 
-  // Blynk Sync: when initialState becomes true from server, seed a timer if none exists
+  // Blynk Sync: reconcile local state with server state
   useEffect(() => {
-    if (initialState) {
-      const savedStart = localStorage.getItem(`relay_start_${pin}`);
-      if (!savedStart) {
-        // No local timestamp → relay was ON before this session; start counting from now
-        const now = Date.now();
-        localStorage.setItem(`relay_start_${pin}`, now.toString());
-        setStartTime(now);
+    // If we are currently in the middle of a user toggle (verifying), 
+    // ignore background syncs to prevent flickering
+    if (isVerifying) return;
+
+    if (initialState !== isActive) {
+      if (initialState) {
+        // External ON detected
+        const savedStart = localStorage.getItem(`relay_start_${pin}`);
+        if (!savedStart) {
+          const now = Date.now();
+          localStorage.setItem(`relay_start_${pin}`, now.toString());
+          setStartTime(now);
+        }
+        setIsActive(true);
+      } else {
+        // External OFF detected
+        localStorage.removeItem(`relay_start_${pin}`);
+        setStartTime(null);
+        setIsActive(false);
       }
-      setIsActive(true);
     }
-  }, [initialState, pin]);
+  }, [initialState, pin, isVerifying]);
 
   // Timer Effect
   useEffect(() => {
