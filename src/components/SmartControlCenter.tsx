@@ -42,7 +42,8 @@ export function SmartControlCenter() {
 
       try {
         const pins = RELAY_CONFIG.map(r => r.pin).join(',');
-        const url = `https://blynk.cloud/external/api/get?token=${token}&${pins}`;
+        const baseUrl = process.env.NEXT_PUBLIC_BLYNK_BASE_URL || 'https://blynk.cloud/external/api';
+        const url = `${baseUrl}/get?token=${token}&${pins}`;
         const response = await fetch(url);
         if (!response.ok) throw new Error('Sync failed');
         
@@ -78,7 +79,8 @@ export function SmartControlCenter() {
 
     try {
       // 1. Blynk Update Phase
-      const updateUrl = `https://blynk.cloud/external/api/update?token=${token}&${pin}=${targetValue}`;
+      const baseUrl = process.env.NEXT_PUBLIC_BLYNK_BASE_URL || 'https://blynk.cloud/external/api';
+      const updateUrl = `${baseUrl}/update?token=${token}&${pin}=${targetValue}`;
       const response = await fetch(updateUrl);
       
       if (!response.ok) throw new Error('Blynk update failed');
@@ -87,7 +89,7 @@ export function SmartControlCenter() {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       // 3. Verification Phase (Blynk Get)
-      const getUrl = `https://blynk.cloud/external/api/get?token=${token}&${pin}`;
+      const getUrl = `${baseUrl}/get?token=${token}&${pin}`;
       const vResponse = await fetch(getUrl);
       if (!vResponse.ok) throw new Error('Blynk verification failed');
       

@@ -21,8 +21,9 @@ export function Dashboard() {
     try {
       // Turn off all 8 relays (V1-V8)
       const pins = ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8'];
+      const baseUrl = process.env.NEXT_PUBLIC_BLYNK_BASE_URL || 'https://blynk.cloud/external/api';
       const shutdownRequests = pins.map(pin => 
-        fetch(`https://blynk.cloud/external/api/update?token=${token}&${pin}=0`)
+        fetch(`${baseUrl}/update?token=${token}&${pin}=0`)
       );
       
       await Promise.all(shutdownRequests);
@@ -156,38 +157,50 @@ export function Dashboard() {
             <TelemetryChart
               title="Voltage Output"
               currentValue={data.voltage}
+              dataPoints={data.history.voltage}
+              labels={data.history.labels}
               unit="V"
               colorHex="#00f0ff"
               glowClass="glow-cyan"
               yAxisMin={200}
               isLive={data.isLive}
+              isStale={data.isStale}
             />
             <TelemetryChart
               title="Current Draw"
               currentValue={data.current}
+              dataPoints={data.history.current}
+              labels={data.history.labels}
               unit="A"
               colorHex="#39ff14"
               glowClass="glow-green"
               yAxisMin={0}
               isLive={data.isLive}
+              isStale={data.isStale}
             />
             <TelemetryChart
               title="Instantaneous Power"
               currentValue={data.power}
+              dataPoints={data.history.power}
+              labels={data.history.labels}
               unit="W"
               colorHex={isOverload ? "#ff073a" : "#ffb000"}
               glowClass={isOverload ? "glow-red" : "glow-amber"}
               yAxisMin={0}
               isLive={data.isLive}
+              isStale={data.isStale}
             />
             <div className="grid grid-cols-1 gap-6">
               <TelemetryChart
                 title="Energy Consumed"
                 currentValue={data.consumption}
+                dataPoints={data.history.consumption}
+                labels={data.history.labels}
                 unit="Wh"
                 colorHex="#ff073a"
                 glowClass="glow-red"
                 isLive={data.isLive}
+                isStale={data.isStale}
               />
             </div>
           </div>
