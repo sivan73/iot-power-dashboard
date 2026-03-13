@@ -5,6 +5,7 @@ import { useIoTData } from '../hooks/useIoTData';
 import { useEnergyAnalytics } from '../hooks/useEnergyAnalytics';
 import { StatusCard } from './StatusCard';
 import { TelemetryChart } from './TelemetryChart';
+import { SmartControlCenter } from './SmartControlCenter';
 import { ActivityLog } from './ActivityLog';
 
 export function Dashboard() {
@@ -149,6 +150,9 @@ export function Dashboard() {
               />
             </div>
           </div>
+
+          {/* Smart Control Center */}
+          <SmartControlCenter />
 
           {/* Usage Statistics & Activity */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-4 border-t border-white/5">

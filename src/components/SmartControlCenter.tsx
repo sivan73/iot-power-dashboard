@@ -19,36 +19,48 @@ export function SmartControlCenter() {
   const handleToggle = async (id: number, field: string, newState: boolean): Promise<boolean> => {
     setError(null);
     const writeKey = process.env.NEXT_PUBLIC_THINGSPEAK_WRITE_API_KEY;
+    const channelId = process.env.NEXT_PUBLIC_THINGSPEAK_CHANNEL_ID;
     
-    if (!writeKey) {
-      console.warn('No ThingSpeak Write API Key provided. Simulating successful write.');
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return true; // Optimistic success for demo purposes
+    // ThingSpeak API expects 1 for ON, 0 for OFF
+    const targetValue = newState ? "1" : "0";
+
+    if (!writeKey || !channelId) {
+      console.warn('ThingSpeak credentials missing. Simulating 2s verification.');
+      // Mandatory 2-second visibility for the spinner as requested
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return true; // Simulate success
     }
 
     try {
-      // ThingSpeak API expects 1 for ON, 0 for OFF
-      const value = newState ? 1 : 0;
-      const url = `https://api.thingspeak.com/update?api_key=${writeKey}&${field}=${value}`;
+      // 1. Write Phase
+      const writeUrl = `https://api.thingspeak.com/update?api_key=${writeKey}&${field}=${targetValue}`;
+      const writeResponse = await fetch(writeUrl, { method: 'GET' });
       
-      const response = await fetch(url, { method: 'GET' }); // ThingSpeak update uses GET typically
+      if (!writeResponse.ok) throw new Error('Write failed');
+      const writeResult = await writeResponse.text();
+      if (writeResult === '0') throw new Error('Rate limit exceeded (15s).');
+
+      // 2. Wait Phase (Mandatory 2s for spinner visibility and propagation)
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // 3. Verification Phase (Read API)
+      const readUrl = `https://api.thingspeak.com/channels/${channelId}/feeds/last.json`;
+      const readResponse = await fetch(readUrl);
+      if (!readResponse.ok) throw new Error('Verification read failed');
       
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
+      const readData = await readResponse.json();
+      const verifiedValue = readData[field];
+
+      // Return true only if the server confirms the state
+      if (verifiedValue === targetValue) {
+        return true;
+      } else {
+        throw new Error('State verification mismatched. Server did not update.');
       }
 
-      const result = await response.text();
-      
-      // ThingSpeak returns 0 if the update fails (usually due to the 15s rate limit)
-      if (result === '0') {
-        throw new Error('Rate limit exceeded. Please wait 15 seconds between updates.');
-      }
-      
-      return true;
     } catch (err: any) {
-      console.error('Failed to update relay state:', err);
-      setError(err.message || 'Failed to update smart relay.');
+      console.error('Relay verification error:', err);
+      setError(err.message || 'Verification failed.');
       return false;
     }
   };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LucideIcon } from 'lucide-react';
+import { LucideIcon, Loader2 } from 'lucide-react';
 
 export interface RelayCardProps {
   id: number;
@@ -12,45 +12,61 @@ export interface RelayCardProps {
 
 export function RelayCard({ id, name, field, icon: Icon, initialState = false, onToggle }: RelayCardProps) {
   const [isActive, setIsActive] = useState(initialState);
-  const [isPending, setIsPending] = useState(false);
-  
-  // Timer state
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [startTime, setStartTime] = useState<number | null>(null);
   const [activeDuration, setActiveDuration] = useState(0);
 
-  // Timer Effect
+  // Load persistence on mount
+  useEffect(() => {
+    const savedStart = localStorage.getItem(`relay_start_${field}`);
+    if (savedStart) {
+      setStartTime(parseInt(savedStart));
+      setIsActive(true);
+    }
+  }, [field]);
+
+  // Timer Effect: Calculates duration from timestamp for accuracy
   useEffect(() => {
     let interval: NodeJS.Timeout;
     
-    if (isActive) {
+    if (isActive && startTime) {
+      // Immediate update
+      setActiveDuration(Math.floor((Date.now() - startTime) / 1000));
+      
       interval = setInterval(() => {
-        setActiveDuration(prev => prev + 1);
+        setActiveDuration(Math.floor((Date.now() - startTime) / 1000));
       }, 1000);
-    } else {
-      setActiveDuration(0); // Reset timer when turned off
+    } else if (!isActive) {
+      setActiveDuration(0);
     }
     
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isActive]);
+  }, [isActive, startTime]);
 
   const handleToggle = async () => {
-    if (isPending) return;
+    if (isVerifying) return;
     
     const newState = !isActive;
-    setIsPending(true);
+    setIsVerifying(true);
     
-    // Optimistic UI update
-    setIsActive(newState);
-    
+    // NO OPTIMISTIC UPDATE: Wait for verification
     const success = await onToggle(id, field, newState);
     
-    if (!success) {
-      // Revert on failure
-      setIsActive(!newState);
+    if (success) {
+      const now = Date.now();
+      if (newState) {
+        setStartTime(now);
+        localStorage.setItem(`relay_start_${field}`, now.toString());
+      } else {
+        localStorage.removeItem(`relay_start_${field}`);
+        setStartTime(null);
+      }
+      setIsActive(newState);
     }
     
-    setIsPending(false);
+    setIsVerifying(false);
   };
 
   const formatDuration = (seconds: number) => {
@@ -75,13 +91,21 @@ export function RelayCard({ id, name, field, icon: Icon, initialState = false, o
         {/* Custom Tailwind Toggle */}
         <button 
           onClick={handleToggle}
-          disabled={isPending}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isActive ? 'bg-neon-cyan shadow-[0_0_10px_#00f0ff]' : 'bg-zinc-700'} ${isPending ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+          disabled={isVerifying}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none 
+            ${isActive ? 'bg-neon-cyan shadow-[0_0_10px_#00f0ff]' : 'bg-zinc-700'} 
+            ${isVerifying ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
           aria-pressed={isActive}
         >
-          <span 
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ease-in-out ${isActive ? 'translate-x-6' : 'translate-x-1'}`}
-          />
+          {isVerifying ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Loader2 size={12} className="text-white animate-spin" />
+            </div>
+          ) : (
+            <span 
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ease-in-out ${isActive ? 'translate-x-6' : 'translate-x-1'}`}
+            />
+          )}
         </button>
       </div>
       
