@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { RelayCard } from './RelayCard';
+import { Toast, ToastMessage } from './Toast';
 import { Lightbulb, Fan, AirVent, Server, Wind, Droplets, Tv, Cpu, Loader2 } from 'lucide-react';
 
 const RELAY_CONFIG = [
@@ -17,7 +18,17 @@ const RELAY_CONFIG = [
 
 export function SmartControlCenter() {
   const [error, setError] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [syncedStates, setSyncedStates] = useState<Record<string, boolean>>({});
+
+  const addToast = useCallback((message: string) => {
+    const id = `toast-${Date.now()}-${Math.random()}`;
+    setToasts(prev => [...prev, { id, message, type: 'error' }]);
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
   const [isSyncing, setIsSyncing] = useState(true);
 
   // Sync Logic: Get initial state from Blynk
@@ -107,32 +118,38 @@ export function SmartControlCenter() {
   }
 
   return (
-    <section className="mt-8">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-white tracking-wider font-mono flex items-center">
-          <span className="w-2 h-2 rounded-full bg-neon-cyan glow-cyan mr-3"></span>
-          SMART CONTROL CENTER
-        </h2>
-        {error && (
-          <span className="text-neon-red text-sm font-mono bg-neon-red/10 px-3 py-1 rounded-full border border-neon-red/20">
-            Error: {error}
-          </span>
-        )}
-      </div>
-      
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-        {RELAY_CONFIG.map((relay) => (
-          <RelayCard
-            key={relay.id}
-            id={relay.id}
-            name={relay.name}
-            pin={relay.pin}
-            icon={relay.icon}
-            onToggle={handleToggle}
-            initialState={syncedStates[relay.pin]}
-          />
-        ))}
-      </div>
-    </section>
+    <>
+      <section className="mt-8">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-white tracking-wider font-mono flex items-center">
+            <span className="w-2 h-2 rounded-full bg-neon-cyan glow-cyan mr-3"></span>
+            SMART CONTROL CENTER
+          </h2>
+          {error && (
+            <span className="text-neon-red text-sm font-mono bg-neon-red/10 px-3 py-1 rounded-full border border-neon-red/20">
+              Error: {error}
+            </span>
+          )}
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+          {RELAY_CONFIG.map((relay) => (
+            <RelayCard
+              key={relay.id}
+              id={relay.id}
+              name={relay.name}
+              pin={relay.pin}
+              icon={relay.icon}
+              onToggle={handleToggle}
+              onError={addToast}
+              initialState={syncedStates[relay.pin]}
+            />
+          ))}
+        </div>
+      </section>
+
+      {/* Toast Notifications */}
+      <Toast toasts={toasts} onDismiss={dismissToast} />
+    </>
   );
 }

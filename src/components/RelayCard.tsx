@@ -6,13 +6,14 @@ import { LucideIcon, Loader2 } from 'lucide-react';
 export interface RelayCardProps {
   id: number;
   name: string;
-  pin: string; // Blynk Virtual Pin (V1-V8)
+  pin: string;
   icon: LucideIcon;
   initialState?: boolean;
   onToggle: (id: number, pin: string, newState: boolean) => Promise<boolean>;
+  onError?: (message: string) => void;
 }
 
-export function RelayCard({ id, name, pin, icon: Icon, initialState = false, onToggle }: RelayCardProps) {
+export function RelayCard({ id, name, pin, icon: Icon, initialState = false, onToggle, onError }: RelayCardProps) {
   const [isActive, setIsActive] = useState(initialState);
   const [isVerifying, setIsVerifying] = useState(false);
   const [startTime, setStartTime] = useState<number | null>(null);
@@ -27,55 +28,60 @@ export function RelayCard({ id, name, pin, icon: Icon, initialState = false, onT
     }
   }, [pin]);
 
-  // Timer Effect: Calculates duration from timestamp for accuracy
+  // Timer Effect
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    
     if (isActive && startTime) {
-      // Immediate update
       setActiveDuration(Math.floor((Date.now() - startTime) / 1000));
-      
       interval = setInterval(() => {
         setActiveDuration(Math.floor((Date.now() - startTime) / 1000));
       }, 1000);
     } else if (!isActive) {
       setActiveDuration(0);
     }
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
+    return () => { if (interval) clearInterval(interval); };
   }, [isActive, startTime]);
 
   const handleToggle = async () => {
     if (isVerifying) return;
-    
+
     const newState = !isActive;
-    setIsVerifying(true);
-    
-    // NO OPTIMISTIC UPDATE: Wait for verification
-    const success = await onToggle(id, pin, newState);
-    
-    if (success) {
+
+    // --- OPTIMISTIC UI: flip immediately ---
+    setIsActive(newState);
+    if (newState) {
       const now = Date.now();
-      if (newState) {
-        setStartTime(now);
-        localStorage.setItem(`relay_start_${pin}`, now.toString());
+      setStartTime(now);
+      localStorage.setItem(`relay_start_${pin}`, now.toString());
+    } else {
+      localStorage.removeItem(`relay_start_${pin}`);
+      setStartTime(null);
+    }
+
+    setIsVerifying(true);
+    const success = await onToggle(id, pin, newState);
+    setIsVerifying(false);
+
+    if (!success) {
+      // --- REVERT on failure ---
+      setIsActive(!newState);
+      if (!newState) {
+        // was turning OFF but failed → restore timer
+        const saved = localStorage.getItem(`relay_start_${pin}`);
+        if (saved) setStartTime(parseInt(saved));
       } else {
+        // was turning ON but failed → clear
         localStorage.removeItem(`relay_start_${pin}`);
         setStartTime(null);
       }
-      setIsActive(newState);
+      onError?.('Hardware Connection Error');
     }
-    
-    setIsVerifying(false);
   };
 
   const formatDuration = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
-    
     if (h > 0) return `${h}h ${m}m ${s}s`;
     if (m > 0) return `${m}m ${s}s`;
     return `${s}s`;
