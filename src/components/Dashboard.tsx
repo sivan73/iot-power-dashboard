@@ -7,10 +7,38 @@ import { StatusCard } from './StatusCard';
 import { TelemetryChart } from './TelemetryChart';
 import { SmartControlCenter } from './SmartControlCenter';
 import { ActivityLog } from './ActivityLog';
+import { useAutoCutoff } from '../hooks/useAutoCutoff';
 
 export function Dashboard() {
   const { data, loading: iotLoading, error: iotError } = useIoTData();
   const { analytics, loading: analyticsLoading, error: analyticsError } = useEnergyAnalytics();
+
+  const handleGlobalShutdown = async () => {
+    console.error("CRITICAL: POWER LOAD EXCEEDED. TRIGGERING GLOBAL SHUTDOWN.");
+    const token = process.env.NEXT_PUBLIC_BLYNK_TOKEN;
+    if (!token) return;
+
+    try {
+      // Turn off all 8 relays (V1-V8)
+      const pins = ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8'];
+      const shutdownRequests = pins.map(pin => 
+        fetch(`https://blynk.cloud/external/api/update?token=${token}&${pin}=0`)
+      );
+      
+      await Promise.all(shutdownRequests);
+      
+      // Clear all mission timers from localStorage
+      pins.forEach(pin => localStorage.removeItem(`relay_start_${pin}`));
+      
+      // Force refresh or state update would be good here, 
+      // but the UI will eventually sync or we can reload
+      window.location.reload(); 
+    } catch (err) {
+      console.error("Global shutdown failed:", err);
+    }
+  };
+
+  const { isEmergency, overloadTime, resetEmergency } = useAutoCutoff(data.power, handleGlobalShutdown);
 
   if (iotLoading) {
     return (
@@ -47,14 +75,27 @@ export function Dashboard() {
   const isOverload = data.power > 800;
 
   return (
-    <div className={`min-h-screen flex flex-col font-sans transition-all duration-500 box-border ${isOverload
+    <div className={`min-h-screen flex flex-col font-sans transition-all duration-500 box-border ${(isOverload || isEmergency)
         ? 'border-[6px] md:border-[8px] border-neon-red shadow-[inset_0_0_120px_rgba(255,7,58,0.2)]'
         : 'border-[6px] md:border-[8px] border-transparent'
       }`}>
-      {isOverload && (
+      {isEmergency ? (
+        <div className="bg-red-600 border-b border-neon-red text-white px-4 py-4 w-full text-center font-bold tracking-[0.2em] uppercase flex flex-col items-center justify-center shadow-[0_0_50px_rgba(255,7,58,0.5)] z-[100] sticky top-0">
+          <div className="flex items-center mb-1">
+            <AlertTriangle className="w-6 h-6 mr-3 text-white animate-bounce" />
+            <span className="text-xl">EMERGENCY SHUTDOWN: TOTAL LOAD EXCEEDED</span>
+          </div>
+          <button 
+            onClick={resetEmergency}
+            className="mt-2 text-[10px] bg-white text-red-600 px-4 py-1 rounded-full hover:bg-zinc-100 transition-colors uppercase tracking-widest font-mono"
+          >
+            Acknowledge & Reset System
+          </button>
+        </div>
+      ) : isOverload && (
         <div className="bg-red-950/90 border-b border-neon-red text-white px-4 py-3 w-full text-center font-bold tracking-[0.4em] uppercase animate-pulse flex items-center justify-center shadow-[0_0_30px_rgba(255,7,58,0.3)] z-50">
           <AlertTriangle className="w-5 h-5 mr-3 text-neon-red" />
-          WARNING: OVERLOAD
+          WARNING: OVERLOAD ({300 - overloadTime}s to Cutoff)
         </div>
       )}
       <div className="flex-grow p-4 md:p-6 lg:p-8">
