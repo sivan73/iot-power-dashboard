@@ -125,11 +125,11 @@ export function SmartControlCenter({ relayActivity }: { relayActivity: RelayActi
     }
 
     try {
-      // 1. Update Phase — POST through proxy
-      const updateUrl = buildProxyUrl('update', [pin], targetValue);
-      addLog(`[${t}] COMMAND: → ${updateUrl}`);
+      // 1. Update Phase — dedicated /api/relay endpoint (server-side, CORS-free)
+      const relayUrl = `/api/relay?pin=${encodeURIComponent(pin)}&value=${targetValue}`;
+      addLog(`[${t}] COMMAND: → ${relayUrl}`);
 
-      const response = await fetch(updateUrl);
+      const response = await fetch(relayUrl);
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
         throw new Error(body.error || `HTTP ${response.status}`);
