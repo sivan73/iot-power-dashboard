@@ -47,9 +47,9 @@ export function AdminTerminal() {
   if (!isExpanded) {
     return (
       <button 
-        onDoubleClick={() => setIsExpanded(true)}
+        onClick={() => setIsExpanded(true)}
         className="fixed bottom-4 left-4 z-50 group flex items-center space-x-2 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-[#00FF41]/20 hover:border-[#00FF41]/50 transition-all duration-500 shadow-lg hover:shadow-[0_0_15px_rgba(0,255,65,0.2)] active:scale-95 group overflow-hidden"
-        title="Double-click or press Ctrl+Shift+A to open Admin Terminal"
+        title="Click or press Ctrl+Shift+A to open Admin Terminal"
       >
         <div className="absolute inset-0 bg-[#00FF41]/5 translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
         <div className="relative flex items-center space-x-2">

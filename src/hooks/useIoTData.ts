@@ -159,12 +159,6 @@ export function useIoTData() {
             const newRuntime = latestFeed.field5 || prev.runtime;
             const newToggleCount = getVal(latestFeed.field6, prev.toggleCount);
             
-            if (!isStale || !prev.isLive) {
-              addLog(`[${timeNow}] SUCCESS: Received V:${newVoltage.toFixed(1)} I:${newCurrent.toFixed(1)}.`);
-            }
-            setThingSpeakStatus('ONLINE');
-            setLastDataReceivedAt(feedTime);
-            
             const processHistory = (feeds: any[]) => {
               // If we fetched 50, recreate arrays. If 1, append.
               if (feeds.length > 1) {
@@ -213,6 +207,15 @@ export function useIoTData() {
             localStorage.setItem('iot_telemetry_cache', JSON.stringify(newData));
             return newData;
           });
+
+          // Update logging and status (Outside of setData to handle React state rules)
+          if (!isStale || !hasFetchedInitial) {
+            const v = parseFloat(latestFeed.field1 || '0');
+            const i = parseFloat(latestFeed.field2 || '0');
+            addLog(`[${timeNow}] SUCCESS: Received V:${v.toFixed(1)} I:${i.toFixed(1)}.`);
+          }
+          setThingSpeakStatus('ONLINE');
+          setLastDataReceivedAt(feedTime);
           setError(null);
         } else {
           startSimulation();

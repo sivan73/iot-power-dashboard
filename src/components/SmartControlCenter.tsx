@@ -5,6 +5,7 @@ import { RelayCard } from './RelayCard';
 import { Toast, ToastMessage } from './Toast';
 import { Lightbulb, Fan, AirVent, Server, Wind, Droplets, Tv, Cpu, Loader2 } from 'lucide-react';
 import { useLogger } from '@/hooks/useLogger';
+import type { useRelayActivity } from '@/hooks/useRelayActivity';
 
 const RELAY_CONFIG = [
   { id: 1, name: 'Main Lights', pin: 'V0', icon: Lightbulb },
@@ -17,7 +18,10 @@ const RELAY_CONFIG = [
   { id: 8, name: 'Control Board', pin: 'V8', icon: Cpu },
 ];
 
-export function SmartControlCenter() {
+type RelayActivityHook = ReturnType<typeof import('@/hooks/useRelayActivity').useRelayActivity>;
+
+export function SmartControlCenter({ relayActivity }: { relayActivity: RelayActivityHook }) {
+  const { recordToggle } = relayActivity;
   const [error, setError] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [syncedStates, setSyncedStates] = useState<Record<string, boolean>>({});
@@ -122,6 +126,9 @@ export function SmartControlCenter() {
       if (vValue === targetValue) {
         addLog(`[${timeNow}] SUCCESS: Confirmed ${pin} is ${newState ? 'High' : 'Low'}.`);
         setBlynkStatus('CONNECTED');
+        // Record relay toggle in activity store
+        const relay = RELAY_CONFIG.find(r => r.pin === pin);
+        if (relay) recordToggle(pin, relay.name, newState ? 'ON' : 'OFF');
         return true;
       } else {
         addLog(`[${timeNow}] CRITICAL: Hardware mismatch on ${pin}.`);

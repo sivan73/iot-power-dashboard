@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 
 /**
  * Custom hook to monitor live power and trigger a safety shutdown
- * if the load exceeds 800W for more than 5 minutes.
+ * if the load exceeds 360W for more than 5 minutes.
  */
 export function useAutoCutoff(currentPower: number, onShutdown: () => void) {
   const [isEmergency, setIsEmergency] = useState(false);
@@ -12,7 +12,7 @@ export function useAutoCutoff(currentPower: number, onShutdown: () => void) {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    const OVERLOAD_THRESHOLD = 800;
+    const OVERLOAD_THRESHOLD = 360;
     const TIME_LIMIT = 300; // 5 minutes (300 seconds)
 
     if (currentPower > OVERLOAD_THRESHOLD && !isEmergency) {

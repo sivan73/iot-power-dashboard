@@ -1,6 +1,6 @@
 "use client";
 
-import { Zap, Activity, BatteryCharging, ChevronRight, AlertTriangle, Clock, Power } from 'lucide-react';
+import { Zap, Activity, BatteryCharging, ChevronRight, AlertTriangle, Clock, Power, Bolt } from 'lucide-react';
 import { useIoTData } from '../hooks/useIoTData';
 import { useEnergyAnalytics } from '../hooks/useEnergyAnalytics';
 import { StatusCard } from './StatusCard';
@@ -8,10 +8,14 @@ import { TelemetryChart } from './TelemetryChart';
 import { SmartControlCenter } from './SmartControlCenter';
 import { ActivityLog } from './ActivityLog';
 import { useAutoCutoff } from '../hooks/useAutoCutoff';
+import { useSessionPower } from '../hooks/useSessionPower';
+import { useRelayActivity } from '../hooks/useRelayActivity';
 
 export function Dashboard() {
   const { data, loading: iotLoading, error: iotError } = useIoTData();
   const { analytics, loading: analyticsLoading, error: analyticsError } = useEnergyAnalytics();
+  const { formatted: sessionPower } = useSessionPower(data.power);
+  const relayActivity = useRelayActivity();
 
   const handleGlobalShutdown = async () => {
     console.error("CRITICAL: POWER LOAD EXCEEDED. TRIGGERING GLOBAL SHUTDOWN.");
@@ -71,9 +75,9 @@ export function Dashboard() {
   // Determine status based on thresholds
   const getVoltageStatus = (v: number) => v > 240 ? 'danger' : v < 200 ? 'warning' : 'safe';
   const getCurrentStatus = (c: number) => c > 10 ? 'danger' : c > 7 ? 'warning' : 'safe';
-  const getPowerStatus = (p: number) => p > 800 ? 'danger' : p > 700 ? 'warning' : 'safe';
+  const getPowerStatus = (p: number) => p > 360 ? 'danger' : p > 300 ? 'warning' : 'safe';
 
-  const isOverload = data.power > 800;
+  const isOverload = data.power > 360;
 
   return (
     <div className={`min-h-screen flex flex-col font-sans transition-all duration-500 box-border ${(isOverload || isEmergency)
@@ -84,7 +88,7 @@ export function Dashboard() {
         <div className="bg-red-600 border-b border-neon-red text-white px-4 py-4 w-full text-center font-bold tracking-[0.2em] uppercase flex flex-col items-center justify-center shadow-[0_0_50px_rgba(255,7,58,0.5)] z-[100] sticky top-0">
           <div className="flex items-center mb-1">
             <AlertTriangle className="w-6 h-6 mr-3 text-white animate-bounce" />
-            <span className="text-xl">EMERGENCY SHUTDOWN: TOTAL LOAD EXCEEDED</span>
+            <span className="text-xl">EMERGENCY SHUTDOWN: TOTAL LOAD EXCEEDED 360W</span>
           </div>
           <button
             onClick={resetEmergency}
@@ -96,7 +100,7 @@ export function Dashboard() {
       ) : isOverload && (
         <div className="bg-red-950/90 border-b border-neon-red text-white px-4 py-3 w-full text-center font-bold tracking-[0.4em] uppercase animate-pulse flex items-center justify-center shadow-[0_0_30px_rgba(255,7,58,0.3)] z-50">
           <AlertTriangle className="w-5 h-5 mr-3 text-neon-red" />
-          WARNING: OVERLOAD ({300 - overloadTime}s to Cutoff)
+          WARNING: OVERLOAD ({300 - overloadTime}s to Cutoff) - LIMIT: 360W
         </div>
       )}
       <div className="flex-grow p-4 md:p-6 lg:p-8">
@@ -107,7 +111,7 @@ export function Dashboard() {
             </div>
             <div>
               <h1 className="text-xl md:text-2xl font-bold text-white tracking-[0.1em] uppercase flex items-center">
-                Power <span className={`${isOverload ? 'text-neon-red text-glow-red' : 'text-neon-cyan text-glow-cyan'} transition-colors duration-300 ml-2`}>Monitor</span>
+                NSG Power <span className={`${isOverload ? 'text-neon-red text-glow-red' : 'text-neon-cyan text-glow-cyan'} transition-colors duration-300 ml-2`}>Monitor</span>
               </h1>
               <p className="text-zinc-500 text-xs mt-1 uppercase tracking-[0.3em] flex items-center">
                 Energy Monitoring and control Dashboard <ChevronRight className="w-3 h-3 ml-1" />
@@ -206,12 +210,12 @@ export function Dashboard() {
           </div>
 
           {/* Smart Control Center */}
-          <SmartControlCenter />
+          <SmartControlCenter relayActivity={relayActivity} />
 
           {/* Usage Statistics & Activity */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-4 border-t border-white/5">
             <div className="lg:col-span-2">
-              <ActivityLog runtime={analytics.formattedRuntime} toggleCount={analytics.toggleCount} />
+              <ActivityLog runtime={analytics.formattedRuntime} toggleCount={analytics.toggleCount} relayActivity={relayActivity} />
             </div>
             <div className="grid grid-cols-1 gap-4">
               <div className="glass-panel p-5 rounded-xl border border-white/5 flex items-center justify-between">
@@ -230,6 +234,15 @@ export function Dashboard() {
                 </div>
                 <div className="w-10 h-10 rounded-full bg-neon-amber/10 border border-neon-amber/20 flex items-center justify-center glow-amber">
                   <Power className="w-5 h-5 text-neon-amber" />
+                </div>
+              </div>
+              <div className="glass-panel p-5 rounded-xl border border-white/5 flex items-center justify-between">
+                <div>
+                  <h3 className="text-zinc-500 text-xs font-mono tracking-wider mb-1">SESSION / ENERGY USED</h3>
+                  <div className="text-2xl font-bold text-neon-green tracking-widest text-glow-green">{sessionPower}</div>
+                </div>
+                <div className="w-10 h-10 rounded-full bg-neon-green/10 border border-neon-green/20 flex items-center justify-center glow-green">
+                  <Zap className="w-5 h-5 text-neon-green" />
                 </div>
               </div>
             </div>
