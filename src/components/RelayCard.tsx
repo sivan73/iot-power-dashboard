@@ -4,13 +4,13 @@ import { LucideIcon, Loader2 } from 'lucide-react';
 export interface RelayCardProps {
   id: number;
   name: string;
-  field: string;
+  pin: string; // Blynk Virtual Pin (V1-V8)
   icon: LucideIcon;
   initialState?: boolean;
-  onToggle: (id: number, field: string, newState: boolean) => Promise<boolean>;
+  onToggle: (id: number, pin: string, newState: boolean) => Promise<boolean>;
 }
 
-export function RelayCard({ id, name, field, icon: Icon, initialState = false, onToggle }: RelayCardProps) {
+export function RelayCard({ id, name, pin, icon: Icon, initialState = false, onToggle }: RelayCardProps) {
   const [isActive, setIsActive] = useState(initialState);
   const [isVerifying, setIsVerifying] = useState(false);
   const [startTime, setStartTime] = useState<number | null>(null);
@@ -18,12 +18,12 @@ export function RelayCard({ id, name, field, icon: Icon, initialState = false, o
 
   // Load persistence on mount
   useEffect(() => {
-    const savedStart = localStorage.getItem(`relay_start_${field}`);
+    const savedStart = localStorage.getItem(`relay_start_${pin}`);
     if (savedStart) {
       setStartTime(parseInt(savedStart));
       setIsActive(true);
     }
-  }, [field]);
+  }, [pin]);
 
   // Timer Effect: Calculates duration from timestamp for accuracy
   useEffect(() => {
@@ -52,15 +52,15 @@ export function RelayCard({ id, name, field, icon: Icon, initialState = false, o
     setIsVerifying(true);
     
     // NO OPTIMISTIC UPDATE: Wait for verification
-    const success = await onToggle(id, field, newState);
+    const success = await onToggle(id, pin, newState);
     
     if (success) {
       const now = Date.now();
       if (newState) {
         setStartTime(now);
-        localStorage.setItem(`relay_start_${field}`, now.toString());
+        localStorage.setItem(`relay_start_${pin}`, now.toString());
       } else {
-        localStorage.removeItem(`relay_start_${field}`);
+        localStorage.removeItem(`relay_start_${pin}`);
         setStartTime(null);
       }
       setIsActive(newState);
