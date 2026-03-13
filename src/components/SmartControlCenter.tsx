@@ -207,6 +207,7 @@ export function SmartControlCenter({ relayActivity }: { relayActivity: RelayActi
               onToggle={handleToggle}
               onError={addToast}
               initialState={syncedStates[relay.pin]}
+              stats={relayActivity.store[relay.pin]}
             />
           ))}
         </div>

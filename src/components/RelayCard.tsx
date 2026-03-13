@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { LucideIcon, Loader2, Clock } from 'lucide-react';
+import { LucideIcon, Loader2, Clock, Activity, Timer } from 'lucide-react';
+import type { RelayStats } from '@/hooks/useRelayActivity';
 
 export interface RelayCardProps {
   id: number;
@@ -11,9 +12,10 @@ export interface RelayCardProps {
   initialState?: boolean;
   onToggle: (id: number, pin: string, newState: boolean) => Promise<boolean>;
   onError?: (message: string) => void;
+  stats?: RelayStats;
 }
 
-export function RelayCard({ id, name, pin, icon: Icon, initialState = false, onToggle, onError }: RelayCardProps) {
+export function RelayCard({ id, name, pin, icon: Icon, initialState = false, onToggle, onError, stats }: RelayCardProps) {
   const [isActive, setIsActive] = useState(initialState);
   const [isVerifying, setIsVerifying] = useState(false);
   const [startTime, setStartTime] = useState<number | null>(null);
@@ -164,6 +166,31 @@ export function RelayCard({ id, name, pin, icon: Icon, initialState = false, onT
             </span>
           </div>
         </div>
+
+        {/* Analytics (Stats) */}
+        {stats && (
+          <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between text-xs font-mono">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-zinc-600 tracking-wider flex items-center gap-1.5">
+                <Activity size={10} className="text-neon-cyan/50"/>
+                TOGGLES
+              </span>
+              <span className="text-zinc-400">
+                <span className="text-neon-green/70">{stats.onCount} ON</span> <span className="text-zinc-600">/</span> <span className="text-zinc-500">{stats.offCount} OFF</span>
+              </span>
+            </div>
+            
+            <div className="flex flex-col gap-1.5 items-end">
+               <span className="text-zinc-600 tracking-wider flex items-center gap-1.5">
+                <Timer size={10} className="text-neon-cyan/50"/>
+                TOTAL RUNTIME
+              </span>
+              <span className="text-zinc-400 tabular-nums">
+                {formatDuration(Math.floor((stats.totalOnMs + (isActive ? activeDuration * 1000 : 0)) / 1000))}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
       
     </div>
