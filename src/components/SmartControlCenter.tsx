@@ -4,15 +4,16 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { RelayCard } from './RelayCard';
 import { Toast, ToastMessage } from './Toast';
 import { Lightbulb, Fan, AirVent, Server, Wind, Droplets, Tv, Cpu, Loader2 } from 'lucide-react';
+import { useLogger } from '@/hooks/useLogger';
 
 const RELAY_CONFIG = [
-  { id: 1, name: 'Main Lights', pin: 'V1', icon: Lightbulb },
-  { id: 2, name: 'Ceiling Fan', pin: 'V2', icon: Fan },
-  { id: 3, name: 'HVAC System', pin: 'V3', icon: AirVent },
-  { id: 4, name: 'Server Rack', pin: 'V4', icon: Server },
-  { id: 5, name: 'Exhaust Fan', pin: 'V5', icon: Wind },
-  { id: 6, name: 'Water Pump', pin: 'V6', icon: Droplets },
-  { id: 7, name: 'Media Center', pin: 'V7', icon: Tv },
+  { id: 1, name: 'Main Lights', pin: 'V0', icon: Lightbulb },
+  { id: 2, name: 'Ceiling Fan', pin: 'V1', icon: Fan },
+  { id: 3, name: 'HVAC System', pin: 'V2', icon: AirVent },
+  { id: 4, name: 'Server Rack', pin: 'V3', icon: Server },
+  { id: 5, name: 'Exhaust Fan', pin: 'V4', icon: Wind },
+  { id: 6, name: 'Water Pump', pin: 'V5', icon: Droplets },
+  { id: 7, name: 'Media Center', pin: 'V6', icon: Tv },
   { id: 8, name: 'Control Board', pin: 'V8', icon: Cpu },
 ];
 
@@ -20,6 +21,7 @@ export function SmartControlCenter() {
   const [error, setError] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [syncedStates, setSyncedStates] = useState<Record<string, boolean>>({});
+  const { addLog, setBlynkStatus } = useLogger();
 
   const addToast = useCallback((message: string) => {
     const id = `toast-${Date.now()}-${Math.random()}`;
@@ -41,9 +43,9 @@ export function SmartControlCenter() {
       }
 
       try {
-        const pins = RELAY_CONFIG.map(r => r.pin).join(',');
+        const pinsQuery = RELAY_CONFIG.map(r => r.pin).join('&');
         const baseUrl = process.env.NEXT_PUBLIC_BLYNK_BASE_URL || 'https://blynk.cloud/external/api';
-        const url = `${baseUrl}/get?token=${token}&${pins}`;
+        const url = `${baseUrl}/get?token=${token}&${pinsQuery}`;
         const response = await fetch(url);
         if (!response.ok) throw new Error('Sync failed');
         
@@ -55,8 +57,10 @@ export function SmartControlCenter() {
           newState[r.pin] = data[r.pin] === "1" || data[r.pin] === 1;
         });
         setSyncedStates(newState);
+        setBlynkStatus('CONNECTED');
       } catch (err) {
         console.error('Blynk sync error:', err);
+        setBlynkStatus('DISCONNECTED');
       } finally {
         setIsSyncing(false);
       }
@@ -70,6 +74,9 @@ export function SmartControlCenter() {
     const token = process.env.NEXT_PUBLIC_BLYNK_TOKEN;
     
     const targetValue = newState ? "1" : "0";
+    
+    const timeNow = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    addLog(`[${timeNow}] COMMAND: Sending ${pin} ${newState ? 'High' : 'Low'} to Blynk Cloud...`);
 
     if (!token) {
       console.warn('Blynk Token missing. Simulating 2s verification.');
@@ -96,13 +103,19 @@ export function SmartControlCenter() {
       const vValue = await vResponse.text();
 
       if (vValue === targetValue) {
+        addLog(`[${timeNow}] SUCCESS: Confirmed ${pin} is ${newState ? 'High' : 'Low'}.`);
+        setBlynkStatus('CONNECTED');
         return true;
       } else {
+        addLog(`[${timeNow}] CRITICAL: Hardware mismatch on ${pin}.`);
+        setBlynkStatus('DISCONNECTED');
         throw new Error('Blynk state mismatch. Device may be offline.');
       }
 
     } catch (err: any) {
       console.error('Blynk relay error:', err);
+      addLog(`[${timeNow}] CRITICAL: Blynk timeout or connection failure.`);
+      setBlynkStatus('DISCONNECTED');
       setError(err.message || 'Blynk transition failed.');
       return false;
     }

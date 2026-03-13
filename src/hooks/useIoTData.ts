@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useLogger } from '@/hooks/useLogger';
 
 export interface IoTData {
   voltage: number;
@@ -57,6 +58,8 @@ export function useIoTData() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  
+  const { addLog, setThingSpeakStatus, setLastDataReceivedAt } = useLogger();
 
   useEffect(() => {
     const channelId = process.env.NEXT_PUBLIC_THINGSPEAK_CHANNEL_ID;
@@ -122,6 +125,9 @@ export function useIoTData() {
 
     const fetchData = async () => {
       try {
+        const timeNow = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        addLog(`[${timeNow}] FETCH: Requesting telemetry from Channel...`);
+        
         // Fetch 50 on first load, then only 1 point to save API overhead
         const resultsCount = hasFetchedInitial ? 1 : 50;
         const url = `https://api.thingspeak.com/channels/${channelId}/feeds.json?results=${resultsCount}${readApiKey ? `&api_key=${readApiKey}` : ''}`;
@@ -152,6 +158,12 @@ export function useIoTData() {
             const newConsumption = getVal(latestFeed.field4, prev.consumption);
             const newRuntime = latestFeed.field5 || prev.runtime;
             const newToggleCount = getVal(latestFeed.field6, prev.toggleCount);
+            
+            if (!isStale || !prev.isLive) {
+              addLog(`[${timeNow}] SUCCESS: Received V:${newVoltage.toFixed(1)} I:${newCurrent.toFixed(1)}.`);
+            }
+            setThingSpeakStatus('ONLINE');
+            setLastDataReceivedAt(feedTime);
             
             const processHistory = (feeds: any[]) => {
               // If we fetched 50, recreate arrays. If 1, append.
@@ -207,6 +219,9 @@ export function useIoTData() {
         }
       } catch (err: any) {
         console.error("ThingSpeak fetch error", err);
+        const timeNow = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        addLog(`[${timeNow}] CRITICAL: ThingSpeak timeout. Switching to Dummy Data.`);
+        setThingSpeakStatus('OFFLINE');
         startSimulation();
       } finally {
         setLoading(false);
@@ -221,7 +236,7 @@ export function useIoTData() {
       clearInterval(interval);
       if (simulationInterval) clearInterval(simulationInterval);
     };
-  }, []);
+  }, [addLog, setThingSpeakStatus, setLastDataReceivedAt]);
 
   return { data, loading, error };
 }

@@ -20,20 +20,20 @@ export function Dashboard() {
 
     try {
       // Turn off all 8 relays (V1-V8)
-      const pins = ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8'];
+      const pins = ['V0', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V8'];
       const baseUrl = process.env.NEXT_PUBLIC_BLYNK_BASE_URL || 'https://blynk.cloud/external/api';
-      const shutdownRequests = pins.map(pin => 
+      const shutdownRequests = pins.map(pin =>
         fetch(`${baseUrl}/update?token=${token}&${pin}=0`)
       );
-      
+
       await Promise.all(shutdownRequests);
-      
+
       // Clear all mission timers from localStorage
       pins.forEach(pin => localStorage.removeItem(`relay_start_${pin}`));
-      
+
       // Force refresh or state update would be good here, 
       // but the UI will eventually sync or we can reload
-      window.location.reload(); 
+      window.location.reload();
     } catch (err) {
       console.error("Global shutdown failed:", err);
     }
@@ -77,8 +77,8 @@ export function Dashboard() {
 
   return (
     <div className={`min-h-screen flex flex-col font-sans transition-all duration-500 box-border ${(isOverload || isEmergency)
-        ? 'border-[6px] md:border-[8px] border-neon-red shadow-[inset_0_0_120px_rgba(255,7,58,0.2)]'
-        : 'border-[6px] md:border-[8px] border-transparent'
+      ? 'border-[6px] md:border-[8px] border-neon-red shadow-[inset_0_0_120px_rgba(255,7,58,0.2)]'
+      : 'border-[6px] md:border-[8px] border-transparent'
       }`}>
       {isEmergency ? (
         <div className="bg-red-600 border-b border-neon-red text-white px-4 py-4 w-full text-center font-bold tracking-[0.2em] uppercase flex flex-col items-center justify-center shadow-[0_0_50px_rgba(255,7,58,0.5)] z-[100] sticky top-0">
@@ -86,7 +86,7 @@ export function Dashboard() {
             <AlertTriangle className="w-6 h-6 mr-3 text-white animate-bounce" />
             <span className="text-xl">EMERGENCY SHUTDOWN: TOTAL LOAD EXCEEDED</span>
           </div>
-          <button 
+          <button
             onClick={resetEmergency}
             className="mt-2 text-[10px] bg-white text-red-600 px-4 py-1 rounded-full hover:bg-zinc-100 transition-colors uppercase tracking-widest font-mono"
           >
@@ -110,7 +110,7 @@ export function Dashboard() {
                 Power <span className={`${isOverload ? 'text-neon-red text-glow-red' : 'text-neon-cyan text-glow-cyan'} transition-colors duration-300 ml-2`}>Monitor</span>
               </h1>
               <p className="text-zinc-500 text-xs mt-1 uppercase tracking-[0.3em] flex items-center">
-                Global Energy Monitoring <ChevronRight className="w-3 h-3 ml-1" />
+                Energy Monitoring and control Dashboard <ChevronRight className="w-3 h-3 ml-1" />
               </p>
             </div>
           </div>
