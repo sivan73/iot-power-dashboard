@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
-import { ref, onValue, off } from 'firebase/database';
-import { db } from '../lib/firebase';
 
 export interface IoTData {
   voltage: number;
   current: number;
   power: number;
-  consumption: number; // Added consumption (Wh)
+  consumption: number;
   runtime: string | number;
   toggleCount: number;
 }
@@ -26,67 +24,74 @@ export function useIoTData() {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!db) {
+    const channelId = process.env.NEXT_PUBLIC_THINGSPEAK_CHANNEL_ID;
+    const readApiKey = process.env.NEXT_PUBLIC_THINGSPEAK_READ_API_KEY;
+
+    // Dummy Data Fallback for Demo
+    if (!channelId) {
       setLoading(false);
       let tick = 0;
       const intervalInfo = setInterval(() => {
         tick++;
         setData(prev => {
-          // Voltage swings slightly around 230V
           const baseVoltage = 230 + Math.sin(tick * 0.2) * 15; 
           const newVoltage = baseVoltage + (Math.random() * 4 - 2);
-          
-          // Current swings between ~1A and ~5A. 
-          // At 230V * 1A = 230W (Safe). 
-          // At 230V * 5A = 1150W (Overload > 800W).
-          // This ensures the dashboard will frequently transition in and out of the Overload state.
           const baseCurrent = 2.5 + Math.cos(tick * 0.15) * 2;
           const newCurrent = Math.max(0.2, baseCurrent + (Math.random() * 0.5 - 0.25));
-          
           const newPower = newVoltage * newCurrent;
-          
-          // Simulate energy increment depending on tick
-          const incrementWh = newPower * (2 / 3600); // 2s interval in hours
+          const incrementWh = newPower * (2 / 3600);
           return {
             ...prev,
             voltage: newVoltage,
             current: newCurrent,
             power: newPower,
             consumption: prev.consumption + incrementWh,
-            toggleCount: prev.toggleCount + (Math.random() > 0.8 ? 1 : 0), // More frequent toggles
+            toggleCount: prev.toggleCount + (Math.random() > 0.8 ? 1 : 0),
           };
         });
       }, 2000);
       return () => clearInterval(intervalInfo);
     }
 
-    const dataRef = ref(db as any, '/');
-    const unsubscribe = onValue(
-      dataRef,
-      (snapshot) => {
-        if (snapshot.exists()) {
-          const val = snapshot.val();
+    // ThingSpeak Polling Logic
+    const url = `https://api.thingspeak.com/channels/${channelId}/feeds.json?results=1${readApiKey ? `&api_key=${readApiKey}` : ''}`;
+
+    const fetchData = async () => {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const json = await response.json();
+        
+        if (json.feeds && json.feeds.length > 0) {
+          const latestFeed = json.feeds[0];
+          
           setData(prev => ({
-            voltage: val.voltage ?? 0,
-            current: val.current ?? 0,
-            power: val.power ?? 0,
-            consumption: val.consumption ?? prev.consumption + ((val.power ?? 0) * (2/3600)),
-            runtime: val.runtime ?? '0h 0m',
-            toggleCount: val.toggleCount ?? 0,
+            voltage: latestFeed.field1 ? parseFloat(latestFeed.field1) : prev.voltage,
+            current: latestFeed.field2 ? parseFloat(latestFeed.field2) : prev.current,
+            power: latestFeed.field3 ? parseFloat(latestFeed.field3) : prev.power,
+            consumption: latestFeed.field4 ? parseFloat(latestFeed.field4) : prev.consumption,
+            runtime: latestFeed.field5 ? latestFeed.field5 : prev.runtime,
+            toggleCount: latestFeed.field6 ? parseFloat(latestFeed.field6) : prev.toggleCount,
           }));
         }
-        setLoading(false);
-      },
-      (err) => {
-        console.error("Firebase subscription error:", err);
+        setError(null);
+      } catch (err: any) {
+        console.error("ThingSpeak fetch error:", err);
         setError(err);
+      } finally {
         setLoading(false);
       }
-    );
-
-    return () => {
-      off(dataRef, 'value', unsubscribe);
     };
+
+    // Initial fetch
+    fetchData();
+
+    // Poll every 15 seconds (ThingSpeak free tier limit is widely respected as ~15s)
+    const interval = setInterval(fetchData, 15000);
+
+    return () => clearInterval(interval);
   }, []);
 
   return { data, loading, error };
