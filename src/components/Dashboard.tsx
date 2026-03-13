@@ -63,7 +63,7 @@ export function Dashboard() {
             </div>
             <div>
               <h1 className="text-xl md:text-2xl font-bold text-white tracking-[0.1em] uppercase flex items-center">
-                Telemetry <span className="text-white/40 font-light mx-2">/</span> <span className={`${isOverload ? 'text-neon-red text-glow-red' : 'text-neon-cyan text-glow-cyan'} transition-colors duration-300`}>Alpha</span>
+                Power <span className={`${isOverload ? 'text-neon-red text-glow-red' : 'text-neon-cyan text-glow-cyan'} transition-colors duration-300 ml-2`}>Monitor</span>
               </h1>
               <p className="text-zinc-500 text-xs mt-1 uppercase tracking-[0.3em] flex items-center">
                 Global Energy Monitoring <ChevronRight className="w-3 h-3 ml-1" />
