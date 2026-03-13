@@ -145,6 +145,7 @@ export function AdminTerminal() {
             if (log.includes('SUCCESS:')) colorClass = 'text-[#00FF41] font-bold drop-shadow-[0_0_3px_rgba(0,255,65,0.8)]';
             if (log.includes('COMMAND:')) colorClass = 'text-cyan-400 drop-shadow-[0_0_3px_rgba(34,211,238,0.8)]';
             if (log.includes('FETCH:')) colorClass = 'text-zinc-400';
+            if (log.includes('DEBUG:')) colorClass = 'text-amber-400 drop-shadow-[0_0_3px_rgba(251,191,36,0.6)]';
 
             return (
               <div key={index} className={`mb-1 ${colorClass} opacity-90 hover:opacity-100 hover:bg-white/5`}>
