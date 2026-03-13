@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { LucideIcon, Loader2 } from 'lucide-react';
+import { LucideIcon, Loader2, Clock } from 'lucide-react';
 
 export interface RelayCardProps {
   id: number;
@@ -19,7 +19,7 @@ export function RelayCard({ id, name, pin, icon: Icon, initialState = false, onT
   const [startTime, setStartTime] = useState<number | null>(null);
   const [activeDuration, setActiveDuration] = useState(0);
 
-  // Load persistence on mount
+  // Load persistence from localStorage on mount
   useEffect(() => {
     const savedStart = localStorage.getItem(`relay_start_${pin}`);
     if (savedStart) {
@@ -27,6 +27,20 @@ export function RelayCard({ id, name, pin, icon: Icon, initialState = false, onT
       setIsActive(true);
     }
   }, [pin]);
+
+  // Blynk Sync: when initialState becomes true from server, seed a timer if none exists
+  useEffect(() => {
+    if (initialState) {
+      const savedStart = localStorage.getItem(`relay_start_${pin}`);
+      if (!savedStart) {
+        // No local timestamp → relay was ON before this session; start counting from now
+        const now = Date.now();
+        localStorage.setItem(`relay_start_${pin}`, now.toString());
+        setStartTime(now);
+      }
+      setIsActive(true);
+    }
+  }, [initialState, pin]);
 
   // Timer Effect
   useEffect(() => {
@@ -78,13 +92,15 @@ export function RelayCard({ id, name, pin, icon: Icon, initialState = false, onT
     }
   };
 
+  // Zero-pad helper
+  const pad = (n: number) => String(n).padStart(2, '0');
+
+  // Format as HH:MM:SS
   const formatDuration = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
-    if (h > 0) return `${h}h ${m}m ${s}s`;
-    if (m > 0) return `${m}m ${s}s`;
-    return `${s}s`;
+    return `${pad(h)}:${pad(m)}:${pad(s)}`;
   };
 
   return (
@@ -130,8 +146,11 @@ export function RelayCard({ id, name, pin, icon: Icon, initialState = false, onT
           </div>
           
           {/* Duration Timer */}
-          <div className="text-xs font-mono text-zinc-400">
-            {isActive ? formatDuration(activeDuration) : '--:--'}
+          <div className={`flex items-center gap-1.5 ${isActive ? 'text-neon-cyan' : 'text-zinc-600'}`}>
+            <Clock size={11} className={isActive ? 'opacity-70' : 'opacity-40'} />
+            <span className={`text-xs font-mono tracking-widest tabular-nums ${isActive ? 'text-neon-cyan' : 'text-zinc-600'}`}>
+              {isActive ? formatDuration(activeDuration) : '--:--:--'}
+            </span>
           </div>
         </div>
       </div>
